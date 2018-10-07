@@ -1,12 +1,12 @@
-const int RED_OUT = 10;
-const int BLUE_OUT = 11;
-const int YELLOW_OUT = 12;
-const int GREEN_OUT = 13;
+const byte RED_OUT = 2;
+const byte BLUE_OUT = 3;
+const byte YELLOW_OUT = 4;
+const byte GREEN_OUT = 5;
 
-const int RED_IN = 40;
-const int BLUE_IN = 42;
-const int YELLOW_IN = 44;
-const int GREEN_IN = 46;
+const byte RED_IN = 21;
+const byte BLUE_IN = 20;
+const byte YELLOW_IN = 19;
+const byte GREEN_IN = 18;
 
 const int MAX_SEQ_LEN = 5;
 
@@ -21,6 +21,16 @@ void setup() {
   pinMode(YELLOW_OUT, OUTPUT);
   pinMode(GREEN_OUT, OUTPUT);
 
+  pinMode(RED_IN, INPUT_PULLUP);
+  pinMode(BLUE_IN, INPUT_PULLUP);
+  pinMode(YELLOW_IN, INPUT_PULLUP);
+  pinMode(GREEN_IN, INPUT_PULLUP);
+
+  attachInterrupt(digitalPinToInterrupt(RED_IN), redInput, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(BLUE_IN), blueInput, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(YELLOW_IN), yellowInput, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(GREEN_IN), greenInput, CHANGE);
+
   randomSeed(analogRead(0));
 
   sequenceLength = 0;
@@ -33,7 +43,7 @@ void loop() {
     return;
   }
   
-  int next = random(10, 14);
+  int next = random(2, 6);
   sequence[sequenceLength] = next;
   outputSequence();
   sequenceLength++;
@@ -41,19 +51,28 @@ void loop() {
 }
 
 void outputSequence() {
-  Serial.print("\nSequence length: ");
-  Serial.print(sequenceLength);
-
-  Serial.print("\nSequence: ");
-  for(int i=0; i<=sequenceLength; i++) {
-    Serial.print(sequence[i]);
-    Serial.print(", ");
-    
+  for(int i=0; i<=sequenceLength; i++) {  
     digitalWrite(sequence[i], HIGH);
     delay(250);
     digitalWrite(sequence[i], LOW);
     delay(500);
   }
+}
+
+void redInput() {
+  Serial.println("RED_IN");
+}
+
+void blueInput() {
+  Serial.println("BLUE_IN");
+}
+
+void yellowInput() {
+  Serial.println("YELLOW_IN");
+}
+
+void greenInput() {
+  Serial.println("GREEN_IN");
 }
 
 void endGame() {
