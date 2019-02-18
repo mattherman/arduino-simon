@@ -39,10 +39,10 @@ void setup() {
   pinMode(YELLOW_IN, INPUT_PULLUP);
   pinMode(GREEN_IN, INPUT_PULLUP);
 
-  attachInterrupt(digitalPinToInterrupt(RED_IN), redInput, FALLING);
-  attachInterrupt(digitalPinToInterrupt(BLUE_IN), blueInput, FALLING);
-  attachInterrupt(digitalPinToInterrupt(YELLOW_IN), yellowInput, FALLING);
-  attachInterrupt(digitalPinToInterrupt(GREEN_IN), greenInput, FALLING);
+  attachInterrupt(digitalPinToInterrupt(RED_IN), redInput, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(BLUE_IN), blueInput, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(YELLOW_IN), yellowInput, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(GREEN_IN), greenInput, CHANGE);
 
   randomSeed(analogRead(0));
 
@@ -131,25 +131,34 @@ void resetInput() {
 }
 
 void redInput() {
-  handleInput(RED);
+  handleInput(RED, digitalRead(RED_IN));
 }
 
 void blueInput() {
-  handleInput(BLUE);
+  handleInput(BLUE, digitalRead(BLUE_IN));
 }
 
 void yellowInput() {
-  handleInput(YELLOW);
+  handleInput(YELLOW, digitalRead(YELLOW_IN));
 }
 
 void greenInput() {
-  handleInput(GREEN);
+  handleInput(GREEN, digitalRead(GREEN_IN));
 }
 
-void handleInput(color selectedColor) {
+void handleInput(color selectedColor, int state) {
+  Serial.print("Setting ");
   Serial.print(COLOR_STRING[selectedColor]);
-  Serial.println(" pressed..");
-  lastInput = selectedColor;
+  Serial.print(" to ");
+  Serial.println(state);
+  if (state == LOW) {
+    Serial.print(COLOR_STRING[selectedColor]);
+    Serial.println(" pressed..");
+    lastInput = selectedColor;
+    digitalWrite(colorToPin(selectedColor), !state);
+  } else {
+    digitalWrite(colorToPin(selectedColor), !state);
+  }  
 }
 
 void gameOver(bool win) {
