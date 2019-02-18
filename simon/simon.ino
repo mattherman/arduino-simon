@@ -1,3 +1,11 @@
+typedef enum { GENERATE_SEQUENCE, WAIT_FOR_INPUT, GAME_OVER } state;
+typedef enum { RED, BLUE, YELLOW, GREEN, NONE } color;
+static const char *COLOR_STRING[] = {
+    "Red", "Blue", "Yellow", "Green", "None"
+};
+
+state currentState = GENERATE_SEQUENCE;
+
 const byte RED_OUT = 2;
 const byte BLUE_OUT = 3;
 const byte YELLOW_OUT = 4;
@@ -10,8 +18,13 @@ const byte GREEN_IN = 18;
 
 const int MAX_SEQ_LEN = 5;
 
-int sequence[MAX_SEQ_LEN];
+color sequence[MAX_SEQ_LEN];
 int sequenceLength;
+
+int currentSequenceIndex = 0;
+volatile color lastInput = NONE;
+unsigned long start = 0;
+const unsigned long WAIT_TIME_MS = 5000;
 
 void setup() {
   Serial.begin(9600);
@@ -26,10 +39,10 @@ void setup() {
   pinMode(YELLOW_IN, INPUT_PULLUP);
   pinMode(GREEN_IN, INPUT_PULLUP);
 
-  attachInterrupt(digitalPinToInterrupt(RED_IN), redInput, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(BLUE_IN), blueInput, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(YELLOW_IN), yellowInput, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(GREEN_IN), greenInput, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(RED_IN), redInput, FALLING);
+  attachInterrupt(digitalPinToInterrupt(BLUE_IN), blueInput, FALLING);
+  attachInterrupt(digitalPinToInterrupt(YELLOW_IN), yellowInput, FALLING);
+  attachInterrupt(digitalPinToInterrupt(GREEN_IN), greenInput, FALLING);
 
   randomSeed(analogRead(0));
 
@@ -37,45 +50,114 @@ void setup() {
 }
 
 void loop() {
+  switch(currentState) {
+    case GENERATE_SEQUENCE: 
+      generateSequence();
+      break;
+    case WAIT_FOR_INPUT:
+      waitForInput();
+      break;
+    default: 
+      break;
+  }
+}
+
+void generateSequence() {
+  Serial.println("Updating sequence...");
+  delay(1000);
   if (sequenceLength == MAX_SEQ_LEN)
   {
-    endGame();
+    gameOver(true);
     return;
   }
   
   int next = random(2, 6);
-  sequence[sequenceLength] = next;
+  sequence[sequenceLength] = pinToColor(next);
   outputSequence();
   sequenceLength++;
-  delay(1000);
+
+  resetInput();
+  currentState = WAIT_FOR_INPUT;
 }
 
 void outputSequence() {
-  for(int i=0; i<=sequenceLength; i++) {  
-    digitalWrite(sequence[i], HIGH);
+  for(int i=0; i<=sequenceLength; i++) {
+    color next = sequence[i];
+    Serial.print(COLOR_STRING[next]);
+    Serial.print(" ");
+    digitalWrite(colorToPin(next), HIGH);
     delay(250);
-    digitalWrite(sequence[i], LOW);
+    digitalWrite(colorToPin(next), LOW);
     delay(500);
+  }
+  Serial.print("\n");
+}
+
+void waitForInput() {
+  // Check if we have exceeded the wait time, if so, game over
+  unsigned long current = millis();
+  if (current > (start + WAIT_TIME_MS)) {
+    Serial.println("Ran out of time!");
+    gameOver(false);
+  }
+  
+  // No buttons pressed yet
+  if (lastInput == NONE) return;
+  
+  color expectedInput = sequence[currentSequenceIndex];
+
+  Serial.print("Expected=");
+  Serial.print(COLOR_STRING[expectedInput]);
+  Serial.print("|Actual=");
+  Serial.println(COLOR_STRING[lastInput]);
+  
+  if (lastInput == expectedInput) {
+    currentSequenceIndex++;
+    if (currentSequenceIndex == sequenceLength) {
+      currentSequenceIndex = 0;
+      currentState = GENERATE_SEQUENCE;
+    } else {
+      resetInput();
+    }
+  } else {
+    Serial.println("Wrong!");
+    gameOver(false);
   }
 }
 
+void resetInput() {
+  lastInput = NONE;
+  start = millis();
+}
+
 void redInput() {
-  Serial.println("RED_IN");
+  handleInput(RED);
 }
 
 void blueInput() {
-  Serial.println("BLUE_IN");
+  handleInput(BLUE);
 }
 
 void yellowInput() {
-  Serial.println("YELLOW_IN");
+  handleInput(YELLOW);
 }
 
 void greenInput() {
-  Serial.println("GREEN_IN");
+  handleInput(GREEN);
 }
 
-void endGame() {
+void handleInput(color selectedColor) {
+  Serial.print(COLOR_STRING[selectedColor]);
+  Serial.println(" pressed..");
+  lastInput = selectedColor;
+}
+
+void gameOver(bool win) {
+  currentState = GAME_OVER;
+  
+  Serial.print("Win? ");
+  Serial.println(win);
+  
   digitalWrite(RED_OUT, HIGH);
   delay(250);
   digitalWrite(RED_OUT, LOW);
@@ -90,3 +172,18 @@ void endGame() {
   digitalWrite(GREEN_OUT, LOW);
 }
 
+color pinToColor(int pin) {
+  if (pin == RED_OUT) return RED;
+  if (pin == BLUE_OUT) return BLUE;
+  if (pin == YELLOW_OUT) return YELLOW;
+  if (pin == GREEN_OUT) return GREEN;
+  return NONE;
+}
+
+int colorToPin(color ledColor) {
+  if (ledColor == RED) return RED_OUT;
+  if (ledColor == BLUE) return BLUE_OUT;
+  if (ledColor == YELLOW) return YELLOW_OUT;
+  if (ledColor == GREEN) return GREEN_OUT;
+  return 0;
+}
