@@ -114,7 +114,7 @@ const byte YELLOW_IN = 19;
 const byte GREEN_IN = 18;
 
 const byte BUZZER = 7;
-const bool MUTE = true;
+const bool MUTE = false;
 
 const int MAX_SEQ_LEN = 5;
 
